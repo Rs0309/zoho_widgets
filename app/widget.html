@@ -1,0 +1,418 @@
+<!--
+ATTEntion :
+
+ye report.html file jiska name change karke widget.html kia cuz zoho ka zet pack  sirf widget.html ko pack karta
+
+-->
+
+
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Orders Report Summary</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #ffffff;
+      margin: 0;
+      padding: 0;
+    }
+    .header {
+      background: #3f51b5;
+      color: #fff;
+      padding: 16px;
+      text-align: center;
+      font-size: 1.5em;
+      font-weight: bold;
+      letter-spacing: 1px;
+      border-bottom: 2px solid #222;
+    }
+    .filters {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      margin: 20px 0 10px 0;
+    }
+    .filters select, .filters input[type="date"] {
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 1px solid #bbb;
+      font-size: 1em;
+    }
+    .report-table-container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 8px 32px 8px;
+      overflow-x: auto;
+      position: relative;
+    }
+    .sticky-scrollbar {
+      position: fixed;
+      left: 0;
+      bottom: 0;
+      width: 100vw;
+      height: 18px;
+      background: transparent;
+      z-index: 100;
+      overflow-x: auto;
+      overflow-y: hidden;
+      display: none;
+    }
+    .sticky-scrollbar-inner {
+      height: 1px;
+    }
+    table {
+      min-width: 1100px;
+      width: max-content;
+      border-collapse: separate;
+      background: #ecfeff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    th, td {
+      padding: 12px 10px;
+      text-align: left;
+      border-bottom: 1px solid #d0d0d0;
+      position: relative;
+    }
+    th {
+      background: #3f51b5;
+      color: #fff;
+      cursor: pointer;
+      user-select: none;
+      min-width: 120px;
+    }
+    tr:last-child td {
+      border-bottom: none;
+    }
+    tr:hover {
+      background: #b2f5ea;
+    }
+    .no-orders {
+      text-align: center;
+      color: #000000;
+      margin-top: 40px;
+      font-size: 1.1em;
+    }
+    .resizer {
+      position: absolute;
+      right: 0;
+      top: 0;
+      width: 6px;
+      height: 100%;
+      cursor: col-resize;
+      user-select: none;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">Orders Report</div>
+  <div class="filters">
+    <select id="locationFilter">
+      <option value="">All Locations</option>
+    </select>
+    <input type="number" id="minQtyFilter" placeholder="Min Qty (Tons)" style="width:120px;" min="0" step="any" />
+    <input type="number" id="maxQtyFilter" placeholder="Max Qty (Tons)" style="width:120px;" min="0" step="any" />
+    <input type="date" id="pickupTimeFilter" />
+    <button onclick="resetFilters()">Reset</button>
+  </div>
+  <div class="report-table-container" id="tableContainer">
+    <div class="no-orders" id="loadingMsg">Loading report...</div>
+    <table id="reportTable" style="display:none;">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>ID</th>
+          <th>PO Number</th>
+          <th>Item Name</th>
+          <th>PO Quantity</th>
+          <th>Billed Quantity</th>
+          <th>Email</th>
+          <th>Pickup Time</th>
+          <th>Actual Pickup Time</th>
+          <th>Status</th>
+          <th>Address</th>
+          <th>Quantity Readily Available (in Tons)</th>
+        </tr>
+      </thead>
+      <tbody id="reportBody"></tbody>
+    </table>
+  </div>
+  <div class="sticky-scrollbar" id="stickyScrollbar"><div class="sticky-scrollbar-inner"></div></div>
+  <script src="https://js.zohostatic.com/creator/widgets/version/2.0/widgetsdk-min.js"></script>
+  <script>
+    // Mapping of state variants to canonical names
+    const stateMap = {
+      'andhra pradesh': 'Andhra Pradesh', 'ap': 'Andhra Pradesh',
+      'arunachal pradesh': 'Arunachal Pradesh', 'ar': 'Arunachal Pradesh',
+      'assam': 'Assam', 'as': 'Assam',
+      'bihar': 'Bihar', 'br': 'Bihar',
+      'chhattisgarh': 'Chhattisgarh', 'cg': 'Chhattisgarh',
+      'goa': 'Goa', 'ga': 'Goa',
+      'gujarat': 'Gujarat', 'gj': 'Gujarat',
+      'haryana': 'Haryana', 'hr': 'Haryana',
+      'himachal pradesh': 'Himachal Pradesh', 'hp': 'Himachal Pradesh',
+      'jharkhand': 'Jharkhand', 'jh': 'Jharkhand',
+      'karnataka': 'Karnataka', 'ka': 'Karnataka',
+      'kerala': 'Kerala', 'kl': 'Kerala',
+      'madhya pradesh': 'Madhya Pradesh', 'mp': 'Madhya Pradesh',
+      'maharashtra': 'Maharashtra', 'mh': 'Maharashtra',
+      'manipur': 'Manipur', 'mn': 'Manipur',
+      'meghalaya': 'Meghalaya', 'ml': 'Meghalaya',
+      'mizoram': 'Mizoram', 'mz': 'Mizoram',
+      'nagaland': 'Nagaland', 'nl': 'Nagaland',
+      'odisha': 'Odisha', 'orissa': 'Odisha', 'od': 'Odisha', 'or': 'Odisha',
+      'punjab': 'Punjab', 'pb': 'Punjab',
+      'rajasthan': 'Rajasthan', 'rj': 'Rajasthan',
+      'sikkim': 'Sikkim', 'sk': 'Sikkim',
+      'tamil nadu': 'Tamil Nadu', 'tn': 'Tamil Nadu',
+      'telangana': 'Telangana', 'ts': 'Telangana',
+      'tripura': 'Tripura', 'tr': 'Tripura',
+      'uttar pradesh': 'Uttar Pradesh', 'up': 'Uttar Pradesh',
+      'uttarakhand': 'Uttarakhand', 'ua': 'Uttarakhand', 'uk': 'Uttarakhand',
+      'west bengal': 'West Bengal', 'wb': 'West Bengal',
+      'andaman and nicobar islands': 'Andaman and Nicobar Islands', 'an': 'Andaman and Nicobar Islands',
+      'chandigarh': 'Chandigarh', 'ch': 'Chandigarh',
+      'dadra and nagar haveli and daman and diu': 'Dadra and Nagar Haveli and Daman and Diu', 'dn': 'Dadra and Nagar Haveli and Daman and Diu', 'dd': 'Dadra and Nagar Haveli and Daman and Diu',
+      'delhi': 'Delhi', 'dl': 'Delhi', 'nct': 'Delhi',
+      'jammu and kashmir': 'Jammu and Kashmir', 'jk': 'Jammu and Kashmir',
+      'ladakh': 'Ladakh', 'la': 'Ladakh',
+      'lakshadweep': 'Lakshadweep', 'ld': 'Lakshadweep',
+      'puducherry': 'Puducherry', 'py': 'Puducherry',
+    };
+    // Canonical state list for dropdown
+    const canonicalStates = [
+      'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa', 'Gujarat', 'Haryana',
+      'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur',
+      'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu',
+      'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal',
+      'Andaman and Nicobar Islands', 'Chandigarh', 'Dadra and Nagar Haveli and Daman and Diu',
+      'Delhi', 'Jammu and Kashmir', 'Ladakh', 'Lakshadweep', 'Puducherry'
+    ];
+
+    let allRecords = [];
+    let filteredRecords = [];
+
+    // Normalize a state string to canonical name
+    function normalizeState(state) {
+      if (!state) return '';
+      const key = state.trim().toLowerCase();
+      return stateMap[key] || state;
+    }
+
+    function renderTable(records) {
+      const tbody = document.getElementById('reportBody');
+      tbody.innerHTML = '';
+      if (!records.length) {
+        document.getElementById('reportTable').style.display = 'none';
+        document.getElementById('loadingMsg').innerHTML = 'No records found.';
+        document.getElementById('loadingMsg').style.display = 'block';
+        return;
+      }
+      document.getElementById('reportTable').style.display = '';
+      document.getElementById('loadingMsg').style.display = 'none';
+      makeColumnsResizable();
+      updateStickyScrollbar();
+      records.forEach(record => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${record.n || ''}</td>
+          <td>${record.id1 || ''}</td>
+          <td>${record.po || ''}</td>
+          <td>${record.itemName || ''}</td>
+          <td>${record.qty || ''}</td>
+          <td>${record.billed_quantity || ''}</td>
+          <td>${record.Email || ''}</td>
+          <td>${record.pick || ''}</td>
+          <td>${record.Actual_Pickup_Date || ''}</td>
+          <td>${record.Status || ''}</td>
+          <td>${formatAddress(record.Address)}</td>
+          <td>${record.Quantity_Ready_To_Be_Picked || ''}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function populateFilters(records) {
+      // Only use canonicalStates for dropdown
+      const locationFilter = document.getElementById('locationFilter');
+      locationFilter.innerHTML = '<option value="">All Locations</option>';
+      canonicalStates.forEach(state => {
+        const opt = document.createElement('option');
+        opt.value = state;
+        opt.textContent = state;
+        locationFilter.appendChild(opt);
+      });
+      // No city filter now
+    }
+
+    function extractStateFromAddress(address) {
+      if (!address) return '';
+      let addrStr = '';
+      if (typeof address === 'string') {
+        addrStr = address;
+      } else if (typeof address === 'object') {
+        addrStr = Object.values(address).filter(Boolean).join(', ');
+      }
+      addrStr = addrStr.toLowerCase().replace(/[^a-z\s]/g, ' '); // remove punctuation
+      // Check for all stateMap keys (abbreviations and names)
+      for (const key in stateMap) {
+        // Use word boundaries to avoid partial matches
+        const regex = new RegExp('\\b' + key + '\\b', 'i');
+        if (regex.test(addrStr)) {
+          return stateMap[key];
+        }
+      }
+      return '';
+    }
+
+    function applyFilters() {
+      const location = document.getElementById('locationFilter').value;
+      const minQty = parseFloat(document.getElementById('minQtyFilter').value);
+      const maxQty = parseFloat(document.getElementById('maxQtyFilter').value);
+      const pickupTime = document.getElementById('pickupTimeFilter').value;
+      filteredRecords = allRecords.filter(r => {
+        let match = true;
+        // Location filter (case-insensitive, canonical)
+        if (location) {
+          const normalizedLoc = normalizeState(r.Location);
+          let stateMatch = (normalizedLoc === location);
+          let extracted = '';
+          if (!stateMatch && r.Address) {
+            extracted = extractStateFromAddress(r.Address);
+            stateMatch = (extracted === location);
+          }
+          match = match && stateMatch;
+        }
+        // Quantity filter
+        let qtyReady = parseFloat(r.Quantity_Ready_To_Be_Picked);
+        if (!isNaN(minQty) && (isNaN(qtyReady) || qtyReady < minQty)) match = false;
+        if (!isNaN(maxQty) && (isNaN(qtyReady) || qtyReady > maxQty)) match = false;
+        // Date filter (independent)
+        if (pickupTime) {
+          if (r.pick) {
+            // pickupTime is YYYY-MM-DD, r.pick is DD-MMM-YYYY
+            const [yyyy, mm, dd] = pickupTime.split('-');
+            const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            const monthStr = months[parseInt(mm,10)-1];
+            const formatted = `${parseInt(dd,10)}-${monthStr}-${yyyy}`;
+            if (!r.pick.startsWith(formatted)) match = false;
+          } else {
+            match = false;
+          }
+        }
+        return match;
+      });
+      renderTable(filteredRecords);
+    }
+
+    function resetFilters() {
+      document.getElementById('locationFilter').value = '';
+      document.getElementById('minQtyFilter').value = '';
+      document.getElementById('maxQtyFilter').value = '';
+      document.getElementById('pickupTimeFilter').value = '';
+      applyFilters();
+    }
+
+    document.getElementById('locationFilter').addEventListener('change', applyFilters);
+    document.getElementById('minQtyFilter').addEventListener('input', applyFilters);
+    document.getElementById('maxQtyFilter').addEventListener('input', applyFilters);
+    document.getElementById('pickupTimeFilter').addEventListener('change', applyFilters);
+
+    document.addEventListener('DOMContentLoaded', function () {
+      ZOHO.CREATOR.UTIL.getInitParams().then(function() {
+        var config = {
+          app_name: "vendor",
+          report_name: "zoho_book_purchase_order_Report"
+        };
+        ZOHO.CREATOR.DATA.getRecords(config).then(function(response) {
+          allRecords = response.data || [];
+          filteredRecords = allRecords;
+          populateFilters(allRecords);
+          renderTable(allRecords);
+        });
+      });
+    });
+
+    // Add this helper function before renderTable
+    function formatAddress(addr) {
+      if (!addr) return '';
+      if (typeof addr === 'string') return addr;
+      if (typeof addr === 'object') {
+        // Join all non-empty values with comma
+        return Object.values(addr).filter(Boolean).join(', ');
+      }
+      return '';
+    }
+
+    // Make table columns resizable
+    function makeColumnsResizable() {
+      const table = document.getElementById('reportTable');
+      const ths = table.querySelectorAll('th');
+      ths.forEach((th, i) => {
+        // Remove old resizer if exists
+        const oldResizer = th.querySelector('.resizer');
+        if (oldResizer) th.removeChild(oldResizer);
+        // Add resizer
+        if (i < ths.length - 1) { // Don't add to last column
+          const resizer = document.createElement('div');
+          resizer.className = 'resizer';
+          th.appendChild(resizer);
+          resizer.addEventListener('mousedown', initResize);
+        }
+      });
+      function initResize(e) {
+        const th = e.target.parentElement;
+        const startX = e.pageX;
+        const startWidth = th.offsetWidth;
+        document.body.style.cursor = 'col-resize';
+        function onMouseMove(e2) {
+          const newWidth = Math.max(60, startWidth + (e2.pageX - startX));
+          th.style.width = newWidth + 'px';
+        }
+        function onMouseUp() {
+          document.removeEventListener('mousemove', onMouseMove);
+          document.removeEventListener('mouseup', onMouseUp);
+          document.body.style.cursor = '';
+        }
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+      }
+    }
+
+    // Sticky/floating horizontal scrollbar logic
+    function updateStickyScrollbar() {
+      const tableContainer = document.getElementById('tableContainer');
+      const stickyScrollbar = document.getElementById('stickyScrollbar');
+      const table = document.getElementById('reportTable');
+      if (!table || table.style.display === 'none') {
+        stickyScrollbar.style.display = 'none';
+        return;
+      }
+      // Show scrollbar only if overflow
+      if (tableContainer.scrollWidth > tableContainer.clientWidth) {
+        stickyScrollbar.style.display = 'block';
+        stickyScrollbar.firstChild.style.width = tableContainer.scrollWidth + 'px';
+      } else {
+        stickyScrollbar.style.display = 'none';
+      }
+    }
+    // Sync scroll positions
+    document.addEventListener('DOMContentLoaded', function () {
+      const tableContainer = document.getElementById('tableContainer');
+      const stickyScrollbar = document.getElementById('stickyScrollbar');
+      stickyScrollbar.addEventListener('scroll', function () {
+        tableContainer.scrollLeft = stickyScrollbar.scrollLeft;
+      });
+      tableContainer.addEventListener('scroll', function () {
+        stickyScrollbar.scrollLeft = tableContainer.scrollLeft;
+      });
+      // Update on window resize
+      window.addEventListener('resize', updateStickyScrollbar);
+    });
+  </script>
+</body>
+</html> 
