@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Your Orders</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #ffffff;
+      margin: 0;
+      padding: 0;
+    }
+    .header {
+      background: #3f51b5;
+      color: #fff;
+      padding: 16px;
+      text-align: center;
+      font-size: 1.5em;
+      font-weight: bold;
+      letter-spacing: 1px;
+      border-bottom: 2px solid #222;
+    }
+    .orders-container {
+      padding: 16px 8px 32px 8px;
+      max-width: 500px;
+      margin: 0 auto;
+    }
+    .order-card {
+      background: #ecfeff;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      margin-bottom: 20px;
+      padding: 18px 20px 18px 20px;
+      position: relative;
+      cursor: pointer;
+      transition: box-shadow 0.2s, background 0.2s;
+      display: flex;
+      flex-direction: column;
+      min-height: 70px;
+    }
+    .order-card:hover {
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+      background: #04df16;
+    }
+    .order-title {
+      font-weight: bold;
+      font-size: 1.1em;
+      margin-bottom: 6px;
+      color: #222;
+    }
+    .order-desc {
+      color: #333;
+      font-size: 0.98em;
+      margin-bottom: 0;
+    }
+    .arrow {
+      position: absolute;
+      right: 18px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 2.5em;
+      color: #222;
+      transition: color 0.2s;
+    }
+    .order-card:hover .arrow {
+      color: #3f51b5;
+    }
+    .no-orders {
+      text-align: center;
+      color: #000000;
+      margin-top: 40px;
+      font-size: 1.1em;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">Your Orders</div>
+  <div class="orders-container" id="ordersContainer">
+    <div class="no-orders">Loading your orders...</div>
+  </div>
+
+  <!-- Zoho Widget SDK -->
+  <script src="https://js.zohostatic.com/creator/widgets/version/2.0/widgetsdk-min.js"></script>
+  <script>
+    // Fetch and display all orders for the logged-in user
+    document.addEventListener("DOMContentLoaded", function () {
+      ZOHO.CREATOR.UTIL.getInitParams().then(function(response) {
+        var userEmail = response.loginUser;
+        if (!userEmail) {
+          document.getElementById("ordersContainer").innerHTML = '<div class="no-orders">Could not determine user email.</div>';
+          return;
+        }
+        var config = {
+          app_name: "vendor",
+          report_name: "zoho_book_purchase_order_Report",
+          criteria: '(Email == "' + userEmail + '" && Status == "No")'
+        };
+        ZOHO.CREATOR.DATA.getRecords(config).then(function(response) {
+          var recordArr = response.data;
+          var container = document.getElementById("ordersContainer");
+          container.innerHTML = '';
+          if (recordArr && recordArr.length > 0) {
+            recordArr.forEach(function(record) {
+              var card = document.createElement("div");
+              card.className = "order-card";
+              card.onclick = function () {
+                // Construct the form URL using the provided format
+                var baseurl = "https://techrecommercex1.zohocreatorportal.in"; // Change to your portal base URL
+                var formName = "zoho_book_purchase_order"; // Change to your form name
+                var reportLinkName = "zoho_book_purchase_order_Report"; // Change to your report link name
+                var formUrl = baseurl + "/#Form:" + formName + "?recLinkID=" + record.ID + "&viewLinkName=" + reportLinkName;
+                ZOHO.CREATOR.UTIL.navigateParentURL({
+                  action: "open",
+                  url: formUrl,
+                  window: "same"
+                });
+              };              
+              card.innerHTML = `
+                <div class="order-title">${record.po || "PO Number"}</div>
+                <div class="order-desc">${record.itemName || "No description"}</div>
+                <span class="arrow">&#8250;</span>
+              `;
+              container.appendChild(card);
+            });
+          } else {
+            container.innerHTML = '<div class="no-orders">No orders found for your account.</div>';
+          }
+        });
+      });
+    });
+  </script>
+</body>
+</html>
